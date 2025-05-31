@@ -1,6 +1,6 @@
 # Source Engine Console Shell
 
-A command-line tool for interacting with Source Engine game consoles (e.g., Portal 2, Half-Life 2, Team Fortress 2) over TCP, with autocompletion and command history.
+A command-line tool for interacting with Source Engine game consoles (e.g., Portal 2, Left 4 Dead 2, etc) over TCP, with autocompletion and command history.
 
 ## Features
 - Connects to a Source Engine game console via TCP (default port 8020).
@@ -10,7 +10,7 @@ A command-line tool for interacting with Source Engine game consoles (e.g., Port
 - Autocompletes both class names and entity names for commands like `ent_text` and `ent_messages` which do not have auto-complete in-game.
 - Continuously displays console output (e.g., game logs), with an option to disable this behavior.
 - Customizable port and prompt text via command-line arguments.
-- Colorized prompt (blue) and input (green) for better readability.
+- Colorized text.
 - Ctrl+C clears the prompt; Ctrl+R enables reverse search through command history.
 
 ## Prerequisites
@@ -86,3 +86,7 @@ Contributions are welcome! Please submit a pull request or open an issue on GitH
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+- Shout out to [PortalRunner](https://www.youtube.com/watch?v=-v5vCLLsqbA) for his video on the `-netconport` feature.
+- Built with [prompt_toolkit](https://python-prompt-toolkit.readthedocs.io/en/master/) for the interactive shell and autocompletion.
