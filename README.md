@@ -83,7 +83,7 @@ You can run a single command and exit without entering the interactive prompt, s
 
    Example:
    ```bash
-   python source-console-shell.py --port 8020 -s "print(1+1)"
+   python source-console-shell.py --port 8020 --script "print(1+1)"
    ```
 
 2. **Dump Scope with a Specific Value**:
@@ -94,10 +94,10 @@ You can run a single command and exit without entering the interactive prompt, s
 
 3. **Dump Root Scope**:
    ```bash
-   python source-console-shell.py --port 8020 --dump-root-scope > root-scope.txt
+   python source-console-shell.py --port 8020 --dump-root-scope > root-scope.kv
    ```
    - `--dump-root-scope`: Run `script __DumpScope(0, getroottable())` and exit.
-   - **Note**: This command typically produces thousands of lines of output, so it’s recommended to redirect the output to a file using `>` (e.g., `> root-scope.txt`).
+   - **Note**: This command typically produces thousands of lines of output, so it’s recommended to redirect the output to a file using `>` (e.g., `> root-scope.kv`).
 
 **Note**: If multiple non-interactive options are specified, the priority is: `--eval`, `--script`, `--dump-scope`, `--dump-root-scope`.
 
@@ -122,8 +122,8 @@ hello
 ```
 
 ```bash
-$ python source-console-shell.py --port 8020 --dump-root-scope > root-scope.txt
-# Output redirected to root-scope.txt
+$ python source-console-shell.py --port 8020 --dump-root-scope > root-scope.kv
+# Output redirected to root-scope.kv
 ```
 
 ## Contributing
