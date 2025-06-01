@@ -8,10 +8,12 @@ A command-line tool for interacting with Source Engine game consoles (e.g., Port
 - Autocompletes CVARs using the `cvarlist` command (loaded at startup).
 - Autocompletes entity names for commands like `ent_fire`, `ent_dump`, and `ent_keyvalue` using the `find_ent` command.
 - Autocompletes both class names and entity names for commands like `ent_text` and `ent_messages` which do not have auto-complete in-game.
-- Continuously displays console output (e.g., game logs), with an option to disable this behavior.
+- Continuously displays console output (e.g., game logs) in interactive mode, with an option to disable this behavior.
+- Non-interactive mode to run a single command and exit.
+- Options to dump scope information using `__DumpScope` in non-interactive mode.
 - Customizable port and prompt text via command-line arguments.
-- Colorized text.
-- Ctrl+C clears the prompt; Ctrl+R enables reverse search through command history.
+- Colorized text in interactive mode.
+- Ctrl+C clears the prompt; Ctrl+R enables reverse search through command history in interactive mode.
 
 ## Prerequisites
 - A Source Engine game (e.g., Portal 2) running with the `-netconport` launch option (e.g., `-netconport 8020`).
@@ -51,9 +53,10 @@ To use this tool, your Source Engine game must be configured to enable the netwo
    - Launch the game from Steam. It will now listen for network console connections on the specified port.
 
 ## Usage
+### Interactive Mode
 1. Ensure your Source Engine game is running with the `-netconport` option as configured above.
 
-2. Run the console shell:
+2. Run the console shell in interactive mode:
    ```bash
    python source-console-shell.py --port 8020 --prompt p2
    ```
@@ -68,7 +71,32 @@ To use this tool, your Source Engine game must be configured to enable the netwo
    - Use Ctrl+C to clear the prompt, Ctrl+R for reverse search, and type `exit` to quit.
    - With continuous output enabled (default), game console output (e.g., server logs) will appear.
 
+### Non-Interactive Mode
+You can run a single command and exit without entering the interactive prompt, similar to `node -e`. Only the command's output will be displayed, making it suitable for redirecting to a file.
+
+1. **Run a Custom Command**:
+   ```bash
+   python source-console-shell.py --port 8020 -e "echo hello"
+   ```
+   - `-e`/`--eval`: Specify a command to run and exit (e.g., `echo hello`).
+
+2. **Dump Scope with a Specific Value**:
+   ```bash
+   python source-console-shell.py --port 8020 --dump-scope "some_scope"
+   ```
+   - `--dump-scope`: Run `script __DumpScope(0, <value>)` with the specified value (e.g., `some_scope`) and exit.
+
+3. **Dump Root Scope**:
+   ```bash
+   python source-console-shell.py --port 8020 --dump-root-scope > root-scope.txt
+   ```
+   - `--dump-root-scope`: Run `script __DumpScope(0, getroottable())` and exit.
+   - **Note**: This command typically produces thousands of lines of output, so it’s recommended to redirect the output to a file using `>` (e.g., `> root-scope.txt`).
+
+**Note**: If multiple non-interactive options are specified, the priority is: `--eval`, `--dump-scope`, `--dump-root-scope`.
+
 ## Example
+### Interactive Mode
 ```bash
 $ python source-console-shell.py --port 8020 --prompt p2
 Source Engine Console Shell
@@ -79,6 +107,17 @@ Type 'ent_dump <name>' or 'ent_text <class/entity>' and press Tab to autocomplet
 Connected to Source Engine console on port 8020.
 Loaded 3462 CVARs for autocompletion.
 p2> ent_text prop [Tab]
+```
+
+### Non-Interactive Mode
+```bash
+$ python source-console-shell.py --port 8020 -e "echo hello"
+hello
+```
+
+```bash
+$ python source-console-shell.py --port 8020 --dump-root-scope > root-scope.txt
+# Output redirected to root-scope.txt
 ```
 
 ## Contributing

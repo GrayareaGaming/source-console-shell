@@ -16,13 +16,13 @@ from prompt_toolkit.completion import Completer, Completion, WordCompleter, Thre
 from prompt_toolkit.styles import Style
 from prompt_toolkit.formatted_text import HTML
 
-class Portal2History:
+class SourceConsoleHistory:
     def __init__(self, histfile=None):
         self.histfile = histfile or os.path.join(os.path.expanduser("~"), ".sourceconsole_history")
         self.file_history = FileHistory(self.histfile)
 
 class SourceConsole:
-    def __init__(self, port=8020, continuous_output=True):
+    def __init__(self, port=8020, continuous_output=True, verbose=True, interactive=True):
         self.port = port
         self.sock = None
         self.running = False
@@ -37,6 +37,8 @@ class SourceConsole:
         self.suppress_output = False
         self.suppress_lock = threading.Lock()
         self.continuous_output = continuous_output
+        self.verbose = verbose
+        self.interactive = interactive
 
     def connect(self):
         try:
@@ -44,7 +46,8 @@ class SourceConsole:
             self.sock.settimeout(3)
             self.sock.connect(('localhost', self.port))
             self.sock.setblocking(False)
-            print(f"Connected to Source Engine console on port {self.port}.")
+            if self.verbose:
+                print(f"Connected to Source Engine console on port {self.port}.")
             self.running = True
             self.read_thread = threading.Thread(target=self.read_output, daemon=True)
             self.read_thread.start()
@@ -52,8 +55,9 @@ class SourceConsole:
             if self.continuous_output:
                 self.output_display_thread = threading.Thread(target=self.display_continuous_output, daemon=True)
                 self.output_display_thread.start()
-            # Load CVAR list on startup
-            self.load_cvar_list()
+            if self.interactive:
+                # Load CVAR list on startup
+                self.load_cvar_list()
             return True
         except ConnectionRefusedError:
             print(f"Error: Connection refused on port {self.port}. Is the game running with -netconport {self.port}?")
@@ -72,8 +76,10 @@ class SourceConsole:
                         self.running = False
                         self.output_queue.put(("Connection closed by server.", False))
                         break
-                    output = data.decode('utf-8', errors='ignore').strip()
+                    output = data.decode('utf-8', errors='ignore')
                     if output:
+                        # replace \r\n with \n for consistent line endings
+                        output = output.replace('\r\n', '\n')
                         self.output_queue.put((output, self.is_autocomplete_query))
             except socket.error:
                 continue
@@ -98,19 +104,32 @@ class SourceConsole:
                     time.sleep(0.01)
             return True
         except Exception as e:
-            print(f"Error sending command: {e}")
+            if self.verbose:
+                print(f"Error sending command: {e}")
             self.running = False
             return False
 
     def get_output(self, timeout=0.5, filter_autocomplete=True):
+        result = ''
+        stop_time = time.time() + timeout
+        while time.time() < stop_time:
+            try:
+                output, is_autocomplete = self.output_queue.get_nowait()
+                if filter_autocomplete or not is_autocomplete:
+                    result += output
+                stop_time = time.time() + timeout  # Reset timeout on new output
+            except queue.Empty:
+                time.sleep(0.01)
+                continue
+        return result
+    
+    def get_output_lines(self, timeout=0.5, filter_autocomplete=True):
         output_lines = []
         stop_time = time.time() + timeout
         while time.time() < stop_time:
             try:
                 output, is_autocomplete = self.output_queue.get_nowait()
-                if filter_autocomplete and is_autocomplete:
-                    output_lines.extend(output.splitlines())
-                elif not is_autocomplete:
+                if filter_autocomplete or not is_autocomplete:
                     output_lines.extend(output.splitlines())
                 stop_time = time.time() + timeout  # Reset timeout on new output
             except queue.Empty:
@@ -126,9 +145,8 @@ class SourceConsole:
                     if self.suppress_output:
                         time.sleep(0.01)
                         continue
-                    output, is_autocomplete = self.output_queue.get(timeout=0.05)
-                    for line in output.splitlines():
-                        print(line)
+                    output, _ = self.output_queue.get(timeout=0.05)
+                    print(output, end='', flush=True)
             except queue.Empty:
                 time.sleep(0.01)
                 continue
@@ -146,7 +164,7 @@ class SourceConsole:
 
             self.send_command("cvarlist", is_autocomplete=True, wait_for_output=False)
 
-            output_lines = self.get_output(filter_autocomplete=True)
+            output_lines = self.get_output_lines(filter_autocomplete=True)
 
             cvar_list = []
             for line in output_lines:
@@ -155,7 +173,8 @@ class SourceConsole:
                     cvar_list.append(parts[0].strip())
 
             self.cvar_list = sorted(cvar_list)
-            print(f"Loaded {len(self.cvar_list)} CVARs for autocompletion.")
+            if self.verbose:
+                print(f"Loaded {len(self.cvar_list)} CVARs for autocompletion.")
         except Exception as e:
             print(f"Error loading CVAR list: {e}")
             self.cvar_list = []
@@ -174,7 +193,7 @@ class SourceConsole:
 
             self.send_command(f"find_ent {prefix}", is_autocomplete=True, wait_for_output=False)
 
-            output_lines = self.get_output(timeout=0.1, filter_autocomplete=True)
+            output_lines = self.get_output_lines(timeout=0.1, filter_autocomplete=True)
 
             class_names = []
             entity_names = []
@@ -195,7 +214,8 @@ class SourceConsole:
                 self.autocomplete_results[prefix] = combined_results
                 self.query_in_progress[prefix] = False
         except Exception as e:
-            print(f"Error querying entities: {e}")
+            if self.verbose:
+                print(f"Error querying entities: {e}")
             with self.autocomplete_lock:
                 self.autocomplete_results[prefix] = []
                 self.query_in_progress[prefix] = False
@@ -341,26 +361,70 @@ def parse_args():
         action="store_true",
         help="Disable continuous fetching of console output (default: enabled)"
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "-e",
+        "--eval",
+        type=str,
+        help="Run a single command and exit (non-interactive mode)"
+    )
+    parser.add_argument(
+        "--dump-scope",
+        type=str,
+        help="Run script __DumpScope(0, <value>) and exit (non-interactive mode)"
+    )
+    parser.add_argument(
+        "--dump-root-scope",
+        "--dump-root-table",
+        action="store_true",
+        help="Run script __DumpScope(0, getroottable()) and exit (non-interactive mode)"
+    )
+    args = parser.parse_args()
+
+    # Determine the command to run in non-interactive mode
+    if args.eval:
+        args.command = args.eval
+    elif args.dump_scope:
+        args.command = f"script __DumpScope(0, {args.dump_scope})"
+    elif args.dump_root_scope:
+        args.command = "script __DumpScope(0, getroottable())"
+    else:
+        args.command = None
+
+    return args
 
 def main():
     args = parse_args()
     port = args.port
     prompt_text = args.prompt
     continuous_output = not args.no_continuous_output
+    interactive = args.command is None
+    non_interactive = not interactive
+    verbose = interactive
 
     try:
-        print("Source Engine Console Shell")
-        print("Type 'exit' to leave, Ctrl+C to clear prompt, Ctrl+R for reverse search")
-        print(f"Type 'help <cmd>' and press Tab to autocomplete CVARs (e.g., 'help ent_')")
-        print(f"Type 'ent_dump <name>' or 'ent_text <class/entity>' and press Tab to autocomplete names (e.g., 'ent_text prop')")
-        print("-" * 60)
-
-        history_manager = Portal2History()
-
-        main_console = SourceConsole(port=port, continuous_output=continuous_output)
+        main_console = SourceConsole(
+            port=port,
+            continuous_output=continuous_output and interactive,
+            verbose=verbose,
+            interactive=interactive
+        )
         if not main_console.connect():
             return
+
+        if non_interactive:
+            # Non-interactive mode: run the command and exit
+            main_console.send_command(args.command, is_autocomplete=False)
+            output = main_console.get_output(filter_autocomplete=False)
+            print(output, end='')
+            return
+
+        # Interactive mode
+        if verbose:
+            print("Source Engine Console Shell")
+            print("Type 'exit' to leave, Ctrl+C to clear prompt, Ctrl+R for reverse search")
+            print(f"Type 'help <cmd>' and press Tab to autocomplete CVARs (e.g., 'help ent_')")
+            print(f"Type 'ent_dump <name>' or 'ent_text <class/entity>' and press Tab to autocomplete names (e.g., 'ent_text prop')")
+            print("-" * 60)
 
         base_completer = SourceConsoleCompleter(main_console)
         completer = ThreadedCompleter(base_completer)
@@ -396,9 +460,9 @@ def main():
 
                 main_console.send_command(cmd, is_autocomplete=False)
 
-                output_lines = main_console.get_output(filter_autocomplete=False)
-                for line in output_lines:
-                    print(line)
+                if not main_console.continuous_output:
+                    output = main_console.get_output(filter_autocomplete=False)
+                    print(output, end='', flush=True)
 
             except (KeyboardInterrupt, EOFError):
                 print("\nExiting...")
@@ -412,7 +476,9 @@ def main():
         traceback.print_exc()
     finally:
         main_console.close()
-        print("Goodbye!")
+        if verbose:
+            print("Goodbye!")
 
 if __name__ == "__main__":
+    history_manager = SourceConsoleHistory()
     main()
