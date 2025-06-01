@@ -368,6 +368,12 @@ def parse_args():
         help="Run a single command and exit (non-interactive mode)"
     )
     parser.add_argument(
+        "-s",
+        "--script",
+        type=str,
+        help="Run a script command (equivalent to --eval 'script <value>') and exit (non-interactive mode)"
+    )
+    parser.add_argument(
         "--dump-scope",
         type=str,
         help="Run script __DumpScope(0, <value>) and exit (non-interactive mode)"
@@ -383,6 +389,8 @@ def parse_args():
     # Determine the command to run in non-interactive mode
     if args.eval:
         args.command = args.eval
+    elif args.script:
+        args.command = f"script {args.script}"
     elif args.dump_scope:
         args.command = f"script __DumpScope(0, {args.dump_scope})"
     elif args.dump_root_scope:

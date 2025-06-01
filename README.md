@@ -79,6 +79,12 @@ You can run a single command and exit without entering the interactive prompt, s
    python source-console-shell.py --port 8020 -e "echo hello"
    ```
    - `-e`/`--eval`: Specify a command to run and exit (e.g., `echo hello`).
+   - `-s`/`--script`: Run a script command (equivalent to `--eval 'script <value>'`) and exit.
+
+   Example:
+   ```bash
+   python source-console-shell.py --port 8020 -s "print(1+1)"
+   ```
 
 2. **Dump Scope with a Specific Value**:
    ```bash
@@ -93,7 +99,7 @@ You can run a single command and exit without entering the interactive prompt, s
    - `--dump-root-scope`: Run `script __DumpScope(0, getroottable())` and exit.
    - **Note**: This command typically produces thousands of lines of output, so it’s recommended to redirect the output to a file using `>` (e.g., `> root-scope.txt`).
 
-**Note**: If multiple non-interactive options are specified, the priority is: `--eval`, `--dump-scope`, `--dump-root-scope`.
+**Note**: If multiple non-interactive options are specified, the priority is: `--eval`, `--script`, `--dump-scope`, `--dump-root-scope`.
 
 ## Example
 ### Interactive Mode
