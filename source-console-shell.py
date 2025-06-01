@@ -60,10 +60,10 @@ class SourceConsole:
                 self.load_cvar_list()
             return True
         except ConnectionRefusedError:
-            print(f"Error: Connection refused on port {self.port}. Is the game running with -netconport {self.port}?")
+            print(f"Error: Connection refused on port {self.port}. Is the game running with -netconport {self.port}?", file=sys.stderr)
             return False
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error: {e}", file=sys.stderr)
             return False
 
     def read_output(self):
@@ -85,11 +85,12 @@ class SourceConsole:
                 continue
             except Exception as e:
                 self.output_queue.put((f"Read error: {e}", False))
+                print(f"Read error: {e}", file=sys.stderr)
                 break
 
     def send_command(self, cmd, is_autocomplete=False, wait_for_output=True):
         if not self.running:
-            print("Error: Not connected to Source Engine console.")
+            print("Error: Not connected to Source Engine console.", file=sys.stderr)
             return False
         try:
             with self.lock:
@@ -105,7 +106,7 @@ class SourceConsole:
             return True
         except Exception as e:
             if self.verbose:
-                print(f"Error sending command: {e}")
+                print(f"Error sending command: {e}", file=sys.stderr)
             self.running = False
             return False
 
@@ -124,18 +125,7 @@ class SourceConsole:
         return result
     
     def get_output_lines(self, timeout=0.5, filter_autocomplete=True):
-        output_lines = []
-        stop_time = time.time() + timeout
-        while time.time() < stop_time:
-            try:
-                output, is_autocomplete = self.output_queue.get_nowait()
-                if filter_autocomplete or not is_autocomplete:
-                    output_lines.extend(output.splitlines())
-                stop_time = time.time() + timeout  # Reset timeout on new output
-            except queue.Empty:
-                time.sleep(0.01)
-                continue
-        return output_lines
+        return self.get_output(timeout, filter_autocomplete).splitlines()
 
     def display_continuous_output(self):
         """Continuously fetch and display console output in a separate thread."""
@@ -151,7 +141,7 @@ class SourceConsole:
                 time.sleep(0.01)
                 continue
             except Exception as e:
-                print(f"Error in continuous output: {e}")
+                print(f"Error in continuous output: {e}", file=sys.stderr)
 
     def load_cvar_list(self):
         """Load CVAR list by running the 'cvarlist' command."""
@@ -176,7 +166,7 @@ class SourceConsole:
             if self.verbose:
                 print(f"Loaded {len(self.cvar_list)} CVARs for autocompletion.")
         except Exception as e:
-            print(f"Error loading CVAR list: {e}")
+            print(f"Error loading CVAR list: {e}", file=sys.stderr)
             self.cvar_list = []
         finally:
             with self.suppress_lock:
@@ -215,7 +205,7 @@ class SourceConsole:
                 self.query_in_progress[prefix] = False
         except Exception as e:
             if self.verbose:
-                print(f"Error querying entities: {e}")
+                print(f"Error querying entities: {e}", file=sys.stderr)
             with self.autocomplete_lock:
                 self.autocomplete_results[prefix] = []
                 self.query_in_progress[prefix] = False
@@ -477,15 +467,16 @@ def main():
                 break
 
     except EOFError:
-        print("\nExiting...")
+        print("\nExiting...", file=sys.stderr)
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Unexpected error: {e}", file=sys.stderr)
         import traceback
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stderr)
     finally:
         main_console.close()
         if verbose:
             print("Goodbye!")
+
 
 if __name__ == "__main__":
     history_manager = SourceConsoleHistory()

@@ -83,7 +83,8 @@ You can run a single command and exit without entering the interactive prompt, s
 
    Example:
    ```bash
-   python source-console-shell.py --port 8020 --script "print(1+1)"
+   python source-console-shell.py --port 8020 --script 'printl(RandomFloat(0,1))'
+   python source-console-shell.py --port 8020 --script 'ScriptSteamShowURL("https://github.com/GrayareaGaming/source-console-shell")'
    ```
 
 2. **Dump Scope with a Specific Value**:
